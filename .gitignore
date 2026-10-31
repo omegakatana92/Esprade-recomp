@@ -1,0 +1,32 @@
+# build output, including translated ROM-derived C
+build/
+out/
+*.obj
+*.o
+*.exe
+*.dll
+*.pdb
+*.ilk
+*.a
+*.lib
+*.AppImage
+
+# the player's ROM and extracted assets
+rom/
+*.zip
+!tests/fixtures/*.zip
+
+# generated / local state
+*.hashes
+*.wav
+*.png
+!docs/**/*.png
+.eeprom
+esprade-eeprom.bin
+*.log
+__pycache__/
+*.pyc
+.vs/
+.vscode/
+.idea/
+CMakeUserPresets.json

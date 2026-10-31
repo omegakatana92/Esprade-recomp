@@ -1,0 +1,77 @@
+name: Linux x86_64 / Steam Deck
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libsdl2-dev file
+
+      - name: Check the toolchain (no ROM)
+        run: |
+          python3 -m py_compile tools/esprade_rom.py tools/game_profile.py tools/verify_rom.py tools/disassemble.py tools/recompile.py tools/seed_symbols.py tools/seed_prologues.py
+
+      - name: Materialise the ROM from the repository secret
+        id: rom
+        run: |
+          if [ -z "${{ secrets.ESPRADE_ROM_BASE64 }}" ]; then
+            echo "::notice::ESPRADE_ROM_BASE64 is not configured; skipping the ROM-dependent build."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          mkdir -p rom
+          echo "${{ secrets.ESPRADE_ROM_BASE64 }}" | base64 -d > rom/esprade.zip
+          echo "present=true" >> "$GITHUB_OUTPUT"
+
+      - name: Verify, analyse and translate
+        if: steps.rom.outputs.present == 'true'
+        run: |
+          python3 tools/verify_rom.py rom/esprade.zip
+          python3 tools/seed_symbols.py rom/esprade.zip
+          python3 tools/disassemble.py rom/esprade.zip
+          python3 tools/recompile.py rom/esprade.zip
+
+      - name: Configure and build
+        if: steps.rom.outputs.present == 'true'
+        run: |
+          cmake -S . -B build/cmake -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/cmake
+
+      - name: Headless smoke test
+        if: steps.rom.outputs.present == 'true'
+        run: ./build/cmake/esprade_headless --rom rom/esprade.zip --frames 600 --hashes build/boot.hashes
+
+      - name: Package the AppImage
+        if: steps.rom.outputs.present == 'true'
+        env:
+          ROM: ${{ github.workspace }}/rom/esprade.zip
+        run: ./scripts/package_appimage.sh
+
+      - name: Audit the AppImage
+        if: steps.rom.outputs.present == 'true'
+        run: |
+          file build/ESPRaDe-SteamDeck-x86_64.AppImage
+          ldd build/cmake/esprade
+          ./build/ESPRaDe-SteamDeck-x86_64.AppImage --appimage-extract-and-run --help || true
+
+      - uses: actions/upload-artifact@v4
+        if: steps.rom.outputs.present == 'true'
+        with:
+          name: ESPRaDe-SteamDeck-x86_64
+          path: build/ESPRaDe-SteamDeck-x86_64.AppImage

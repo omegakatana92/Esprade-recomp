@@ -1,0 +1,47 @@
+name: Repository checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  rom-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python syntax
+        run: |
+          python3 -m py_compile tools/esprade_rom.py tools/game_profile.py tools/verify_rom.py \
+            tools/disassemble.py tools/recompile.py tools/seed_symbols.py tools/seed_prologues.py \
+            tools/inspect_rom.py tools/dump_words.py
+
+      - name: ROM set description is internally consistent
+        run: |
+          python3 - <<'PY'
+          import sys
+          sys.path.insert(0, "tools")
+          import esprade_rom as rom
+          names = set(rom.ROM_FILES)
+          assert rom.SET_NAME == "esprade"
+          assert len(names) == 13, len(names)
+          assert rom.PROGRAM_SIZE == 0x100000
+          assert all(len(crc) == 8 and len(sha1) == 40 for crc, sha1, _ in rom.ROM_FILES.values())
+          print("ROM description OK:", len(names), "files")
+          PY
+
+      - name: No ROM or generated output committed
+        run: |
+          if git ls-files | grep -E '(^|/)(rom/.*\.zip|build/generated/.*\.c)$'; then
+            echo "ROM or generated C is tracked" >&2
+            exit 1
+          fi
+          echo "no ROM or generated C tracked"

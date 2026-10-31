@@ -1,0 +1,83 @@
+name: Windows x64
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check the toolchain (no ROM)
+        run: |
+          python -m py_compile tools\esprade_rom.py tools\game_profile.py tools\verify_rom.py tools\disassemble.py tools\recompile.py tools\seed_symbols.py tools\seed_prologues.py
+
+      - name: Materialise the ROM from the repository secret
+        id: rom
+        shell: pwsh
+        run: |
+          if ("${{ secrets.ESPRADE_ROM_BASE64 }}" -eq "") {
+            Write-Host "::notice::ESPRADE_ROM_BASE64 is not configured; skipping the ROM-dependent build."
+            "present=false" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+          New-Item -ItemType Directory -Force rom | Out-Null
+          [IO.File]::WriteAllBytes("rom\esprade.zip", [Convert]::FromBase64String("${{ secrets.ESPRADE_ROM_BASE64 }}"))
+          "present=true" >> $env:GITHUB_OUTPUT
+
+      - name: Verify, analyse and translate
+        if: steps.rom.outputs.present == 'true'
+        run: |
+          python tools\verify_rom.py rom\esprade.zip
+          python tools\seed_symbols.py rom\esprade.zip
+          python tools\disassemble.py rom\esprade.zip
+          python tools\recompile.py rom\esprade.zip
+
+      - name: Fetch SDL2 VC development package
+        if: steps.rom.outputs.present == 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build\downloads | Out-Null
+          Invoke-WebRequest -Uri "https://github.com/libsdl-org/SDL/releases/download/release-2.32.10/SDL2-devel-2.32.10-VC.zip" -OutFile build\downloads\SDL2.zip
+          Expand-Archive build\downloads\SDL2.zip -DestinationPath build\downloads -Force
+
+      - name: Configure and build
+        if: steps.rom.outputs.present == 'true'
+        shell: pwsh
+        run: |
+          cmake -S . -B build\cmake -G Ninja -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_C_COMPILER=clang `
+            -DCMAKE_PREFIX_PATH="$PWD\build\downloads\SDL2-2.32.10"
+          cmake --build build\cmake
+
+      - name: Headless smoke test
+        if: steps.rom.outputs.present == 'true'
+        run: build\cmake\esprade_headless.exe --rom rom\esprade.zip --frames 600 --hashes build\boot.hashes
+
+      - name: Package
+        if: steps.rom.outputs.present == 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item build\cmake\esprade.exe dist\ESPRaDe-Windows-x64.exe
+          Copy-Item build\cmake\esprade_headless.exe dist\
+          Copy-Item build\cmake\SDL2.dll dist\
+          Copy-Item LICENSE, THIRD_PARTY.md dist\
+          Copy-Item LICENSES dist\LICENSES -Recurse
+          Compress-Archive -Path dist\* -DestinationPath ESPRaDe-Windows-x64.zip
+
+      - uses: actions/upload-artifact@v4
+        if: steps.rom.outputs.present == 'true'
+        with:
+          name: ESPRaDe-Windows-x64
+          path: ESPRaDe-Windows-x64.zip
