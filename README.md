@@ -22,11 +22,11 @@ core and no instruction interpreter is shipped.
 | Static analysis | **Working**: 34,945 instructions, 386 functions, no unresolved paths |
 | Native translation | **Working**: 1,561 C functions, 0 unsupported instructions |
 | Headless boot | **Working**: 600 frames, 0 bad bus accesses, 0 missing code |
-| Video | **Working**: title screen and first in-game scene verified |
-| Audio | **Pending**: YMZ280B register interface present, mixer pending |
-| Inputs | **Working headless**: coin/start reach the how-to-play screen and a game scene |
-| Gameplay | **Partial**: frame 7300 shows in-game; later handler tables still need coverage |
-| Windows executable | **Builds**: SDL2 front end compiles; interactive run not yet verified |
+| Video | **Working**: title, warning, in-game and ranking screens verified |
+| Audio | **Working**: YMZ280B ADPCM/PCM mixer, 44.1 kHz stereo WAV verified |
+| Inputs | **Working headless**: coin/start; SDL mapping implemented |
+| Gameplay | **Verified 60,000 frames** with no missing code or bad bus access |
+| Windows executable | **Builds and launches**: SDL warning/title screen verified |
 | Steam Deck AppImage | **Not built yet** |
 
 A successful compilation is not a playable build. Verified results and known gaps live in

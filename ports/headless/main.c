@@ -24,6 +24,8 @@ static const char *png_path;
 static uint64_t png_frame;
 static uint64_t coin_frame = UINT64_MAX;
 static uint64_t start_frame = UINT64_MAX;
+static FILE *wav_file;
+static uint32_t wav_data_bytes;
 
 static uint64_t fnv1a(const void *data, size_t size, uint64_t seed)
 {
@@ -46,6 +48,16 @@ static void frame_ready(cave_machine *machine, void *user)
 	if (machine->frame >= start_frame && machine->frame < start_frame + 6)
 		pressed |= 0x0080;                 /* start 1 */
 	cave_set_inputs(machine, pressed, 0);
+	if (wav_file)
+	{
+		static int16_t audio[2048];
+		int frames = (int)(44100.0 / (15625.0 / 271.5));
+		if (frames > 1024)
+			frames = 1024;
+		ymz280b_render(machine, audio, frames);
+		fwrite(audio, sizeof(int16_t) * 2, (size_t)frames, wav_file);
+		wav_data_bytes += (uint32_t)frames * 4;
+	}
 	uint64_t video = fnv1a(cave_video_frame(machine), 320 * 240 * 4, 0);
 	uint64_t ram = fnv1a(machine->work_ram, sizeof(machine->work_ram), 0);
 	uint64_t palette = fnv1a(machine->palette, sizeof(machine->palette), 0);
@@ -55,7 +67,7 @@ static void frame_ready(cave_machine *machine, void *user)
 			(unsigned long long)machine->frame, (unsigned long long)video,
 			(unsigned long long)ram, (unsigned long long)palette, (unsigned long long)combined);
 	hashes = combined;
-	if (verbose && (machine->frame % 60 == 0 || machine->frame == 1))
+	if (verbose && (machine->frame % 10 == 0 || machine->frame == 1))
 		fprintf(stderr, "frame %llu video=%016llx ram=%016llx\n",
 			(unsigned long long)machine->frame, (unsigned long long)video, (unsigned long long)ram);
 	if (png_path && machine->frame == png_frame)
@@ -73,6 +85,7 @@ int main(int argc, char **argv)
 	const char *rom = NULL;
 	const char *hash_path = NULL;
 	const char *eeprom_path = NULL;
+	const char *wav_path = NULL;
 	uint64_t frames = 600;
 
 	for (int index = 1; index < argc; index++)
@@ -94,11 +107,14 @@ int main(int argc, char **argv)
 			coin_frame = strtoull(argv[++index], NULL, 10);
 		else if (strcmp(argv[index], "--start") == 0 && index + 1 < argc)
 			start_frame = strtoull(argv[++index], NULL, 10);
+		else if (strcmp(argv[index], "--wav") == 0 && index + 1 < argc)
+			wav_path = argv[++index];
 		else if (strcmp(argv[index], "--verbose") == 0)
 			verbose = 1;
 		else if (strcmp(argv[index], "--help") == 0 || strcmp(argv[index], "-h") == 0)
 		{
-			printf("usage: esprade_headless --rom rom\\esprade.zip [--frames N] [--hashes file] [--eeprom file]\n");
+			printf("usage: esprade_headless --rom rom\\esprade.zip [--frames N] [--hashes file]\n"
+				"       [--eeprom file] [--png file frame] [--coin frame] [--start frame] [--wav file]\n");
 			return 0;
 		}
 		else
@@ -128,6 +144,18 @@ int main(int argc, char **argv)
 	}
 	if (eeprom_path)
 		eeprom_load(machine, eeprom_path);
+	if (wav_path)
+	{
+		wav_file = fopen(wav_path, "wb");
+		if (!wav_file)
+		{
+			fprintf(stderr, "esprade_headless: cannot write %s\n", wav_path);
+			cave_machine_destroy(machine);
+			return 4;
+		}
+		uint8_t zero[44] = {0};
+		fwrite(zero, 1, sizeof(zero), wav_file);
+	}
 
 	if (hash_path)
 	{
@@ -203,6 +231,33 @@ int main(int argc, char **argv)
 		cpu.pc & 0xFFFFFFu);
 	if (hash_file)
 		fclose(hash_file);
+	if (wav_file)
+	{
+		uint8_t header[44];
+		uint32_t riff = 36 + wav_data_bytes;
+		memcpy(header + 0, "RIFF", 4);
+		header[4] = (uint8_t)(riff); header[5] = (uint8_t)(riff >> 8);
+		header[6] = (uint8_t)(riff >> 16); header[7] = (uint8_t)(riff >> 24);
+		memcpy(header + 8, "WAVEfmt ", 8);
+		header[16] = 16; header[17] = 0; header[18] = 0; header[19] = 0;
+		header[20] = 1; header[21] = 0;             /* PCM */
+		header[22] = 2; header[23] = 0;             /* stereo */
+		uint32_t rate = 44100;
+		header[24] = (uint8_t)(rate); header[25] = (uint8_t)(rate >> 8);
+		header[26] = (uint8_t)(rate >> 16); header[27] = (uint8_t)(rate >> 24);
+		uint32_t byte_rate = rate * 4;
+		header[28] = (uint8_t)(byte_rate); header[29] = (uint8_t)(byte_rate >> 8);
+		header[30] = (uint8_t)(byte_rate >> 16); header[31] = (uint8_t)(byte_rate >> 24);
+		header[32] = 4; header[33] = 0;
+		header[34] = 16; header[35] = 0;
+		memcpy(header + 36, "data", 4);
+		header[40] = (uint8_t)(wav_data_bytes); header[41] = (uint8_t)(wav_data_bytes >> 8);
+		header[42] = (uint8_t)(wav_data_bytes >> 16); header[43] = (uint8_t)(wav_data_bytes >> 24);
+		fseek(wav_file, 0, SEEK_SET);
+		fwrite(header, 1, sizeof(header), wav_file);
+		fclose(wav_file);
+		fprintf(stderr, "audio: %s (%u bytes, 44100 Hz stereo)\n", wav_path, wav_data_bytes);
+	}
 	cave_machine_destroy(machine);
 	return result;
 }

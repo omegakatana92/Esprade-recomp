@@ -115,7 +115,7 @@ void cave_video_set_rotation(int quarter_turns);   /* 0, 1, 2, 3: the cabinet is
 /* audio (runtime/src/ymz280b.c) */
 void ymz280b_reset(cave_machine *machine);
 void ymz280b_write(cave_machine *machine, uint8_t offset, uint8_t value);
-uint8_t ymz280b_read(cave_machine *machine);
+uint8_t ymz280b_read(cave_machine *machine, uint8_t offset);
 void ymz280b_render(cave_machine *machine, int16_t *samples, int frames);
 void ymz280b_set_irq(cave_machine *machine);
 

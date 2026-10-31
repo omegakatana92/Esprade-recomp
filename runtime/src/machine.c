@@ -163,7 +163,7 @@ uint16_t cave_read16(uint32_t address)
 		return ram_read16(m->work_ram, DDP_WORK_RAM_SIZE, address - 0x100000u);
 
 	if (address >= 0x300000u && address < 0x300004u)
-		return (uint16_t)ymz280b_read(m);
+		return (uint16_t)ymz280b_read(m, (uint8_t)(((address - 0x300000u) >> 1) & 1));
 
 	if (address >= 0x400000u && address < 0x410000u)
 		return ram_read16(m->sprite_ram, DDP_SPRITE_SIZE, address - 0x400000u);

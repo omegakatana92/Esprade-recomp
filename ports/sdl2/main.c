@@ -40,16 +40,21 @@ static int coin_pulse[2];
 
 static void rotate_270(const uint32_t *source, uint32_t *destination)
 {
-	/* source 320x240 (rows 240, columns 320) -> destination 240x320 */
-	for (int y = 0; y < 240; y++)
-		for (int x = 0; x < 320; x++)
-			destination[(239 - x) * 320 + y] = source[y * 320 + x];
+	/* 320x240 source -> 240x320 destination, 270 degrees clockwise */
+	for (int y = 0; y < 320; y++)
+		for (int x = 0; x < 240; x++)
+			destination[y * 240 + x] = source[x * 320 + (319 - y)];
 }
 
-static void audio_callback(void *user, Uint8 *stream, int length)
+static void queue_audio(cave_machine *machine)
 {
-	(void)user;
-	ymz280b_render(cave_current, (int16_t *)stream, length / 4);
+	static int16_t buffer[2048];
+	int frames = (int)(44100.0 / (15625.0 / 271.5));
+	if (frames > 1024)
+		frames = 1024;
+	ymz280b_render(machine, buffer, frames);
+	if (app.audio)
+		SDL_QueueAudio(app.audio, buffer, (Uint32)(frames * 2 * sizeof(int16_t)));
 }
 
 static void apply_buttons(cave_machine *machine)
@@ -106,16 +111,20 @@ static void present(void)
 {
 	if (!app.renderer || !app.texture)
 		return;
+	if (getenv("ESPRADE_DEBUG_SDL")) fprintf(stderr, "present: rotate\n");
 	rotate_270(cave_video_frame(cave_current), app.rotated);
+	if (getenv("ESPRADE_DEBUG_SDL")) fprintf(stderr, "present: update\n");
 	SDL_UpdateTexture(app.texture, NULL, app.rotated, 240 * sizeof(uint32_t));
 	SDL_RenderClear(app.renderer);
 	SDL_RenderCopy(app.renderer, app.texture, NULL, NULL);
 	SDL_RenderPresent(app.renderer);
+	if (getenv("ESPRADE_DEBUG_SDL")) fprintf(stderr, "present: done\n");
 }
 
 static void frame_ready(cave_machine *machine, void *user)
 {
 	(void)user;
+	if (getenv("ESPRADE_DEBUG_SDL")) fprintf(stderr, "frame %llu start\n", (unsigned long long)machine->frame);
 	SDL_Event event;
 	while (SDL_PollEvent(&event))
 	{
@@ -130,6 +139,7 @@ static void frame_ready(cave_machine *machine, void *user)
 		}
 	}
 	apply_buttons(machine);
+	queue_audio(machine);
 	if (!running)
 		longjmp(escape, 1);
 	present();
@@ -161,6 +171,8 @@ int main(int argc, char **argv)
 {
 	const char *rom = NULL;
 	int fullscreen = 0;
+	int audio_enabled = 1;
+	int accelerated = 0;
 	for (int index = 1; index < argc; index++)
 	{
 		if (strcmp(argv[index], "--rom") == 0 && index + 1 < argc)
@@ -169,6 +181,10 @@ int main(int argc, char **argv)
 			fullscreen = 1;
 		else if (strcmp(argv[index], "--windowed") == 0)
 			fullscreen = 0;
+		else if (strcmp(argv[index], "--no-audio") == 0)
+			audio_enabled = 0;
+		else if (strcmp(argv[index], "--accelerated") == 0)
+			accelerated = 1;
 	}
 
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0)
@@ -181,7 +197,8 @@ int main(int argc, char **argv)
 	app.window = SDL_CreateWindow("ESP Ra.De. Native",
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, app.width, app.height,
 		SDL_WINDOW_RESIZABLE | (fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
-	app.renderer = SDL_CreateRenderer(app.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	app.renderer = SDL_CreateRenderer(app.window, -1,
+		accelerated ? SDL_RENDERER_ACCELERATED : SDL_RENDERER_SOFTWARE);
 	if (!app.renderer)
 		app.renderer = SDL_CreateRenderer(app.window, -1, 0);
 	SDL_RenderSetLogicalSize(app.renderer, 240, 320);
@@ -209,8 +226,8 @@ int main(int argc, char **argv)
 	want.format = AUDIO_S16SYS;
 	want.channels = 2;
 	want.samples = 1024;
-	want.callback = audio_callback;
-	app.audio = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+	want.callback = NULL;
+	app.audio = audio_enabled ? SDL_OpenAudioDevice(NULL, 0, &want, &have, 0) : 0;
 	if (app.audio)
 		SDL_PauseAudioDevice(app.audio, 0);
 
