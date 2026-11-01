@@ -54,6 +54,10 @@ struct cave_machine
 	uint8_t *layer_color[DDP_LAYER_COUNT];
 	uint8_t *layer_cat[DDP_LAYER_COUNT];
 	int video_ready;
+	int layer_dirty[DDP_LAYER_COUNT];
+	int layer_tiledim[DDP_LAYER_COUNT];
+	double video_ms;
+	double video_ms_max;
 	uint8_t *ymz_rom;
 	size_t ymz_size;
 	uint8_t eeprom[DDP_EEPROM_SIZE];

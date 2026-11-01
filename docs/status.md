@@ -36,6 +36,9 @@ Updated: 2026-10-31
 - **Interactive controls**: coin/start for both players are wired and were exercised
   (Windows window and headless). Player 2 uses the second SDL controller. Movement,
   shot/bomb and fullscreen are implemented but not yet exercised against gameplay.
+- **Performance**: accelerated rendering is now the default and holds the frame budget in
+  fullscreen; software rendering is available for compatibility but can drop below
+  57.55 Hz at large resolutions.
 - **Steam Deck**: the AppImage is built and launches under Xvfb, but it has not been run on
   a physical SteamOS device; Steam Input, Gaming Mode and audio device selection remain
   unverified.

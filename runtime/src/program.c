@@ -7,6 +7,8 @@
  */
 #include "cave/cave.h"
 
+#include <time.h>
+
 void program_frame_wait(void)
 {
 	cave_machine *machine = cave_current;
@@ -17,7 +19,11 @@ void program_frame_wait(void)
 	machine->vblank_pending = 1;
 	machine->irq_level = 1;
 
+	clock_t video_start = clock();
 	cave_video_refresh(machine);
+	machine->video_ms = (double)(clock() - video_start) * 1000.0 / CLOCKS_PER_SEC;
+	if (machine->video_ms > machine->video_ms_max)
+		machine->video_ms_max = machine->video_ms;
 
 	if (machine->coin[0] > 0)
 		machine->coin[0]--;

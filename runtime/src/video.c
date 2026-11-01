@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #define SCREEN_W 320
 #define SCREEN_H 240
@@ -157,6 +158,8 @@ static void build_layer(cave_machine *machine, int layer)
 	const uint8_t *pixels = machine->layer_pixels[layer];
 	size_t tile_count = machine->layer_gfx_size[layer] / 64;
 	int tiledim = (registers[1] >> 13) & 1;
+	if (!machine->layer_dirty[layer] && machine->layer_tiledim[layer] == tiledim)
+		return;
 	int nonzero = 0;
 
 	for (int cell = 0; cell < 4096; cell++)
@@ -199,6 +202,8 @@ static void build_layer(cave_machine *machine, int layer)
 	if (getenv("ESPRADE_DEBUG_VIDEO"))
 		fprintf(stderr, "layer%d tiledim=%d nonzero=%d first=%08X\n", layer, tiledim, nonzero,
 			(unsigned)(((uint32_t)get16(ram, 0) << 16) | get16(ram, 2)));
+	machine->layer_dirty[layer] = 0;
+	machine->layer_tiledim[layer] = tiledim;
 }
 
 static int signed10(int value)
@@ -360,9 +365,12 @@ void cave_video_refresh(cave_machine *machine)
 	if (!framebuffer || !priority_map || !sprite_bitmap)
 		return;
 
+	clock_t t0 = clock();
 	for (int layer = 0; layer < DDP_LAYER_COUNT; layer++)
 		build_layer(machine, layer);
+	clock_t t1 = clock();
 	build_sprites(machine);
+	clock_t t2 = clock();
 	int mask = layers_enabled();
 
 	uint32_t background = palette_color(0);
@@ -445,11 +453,11 @@ void cave_video_refresh(cave_machine *machine)
 		}
 	}
 
+	clock_t t3 = clock();
 	/* sprites last, below tiles of their own priority (MAME cave_v colpri_cb) */
 	if (!(mask & 8))
 		return;
 	for (int y = 0; y < SCREEN_H; y++)
-	{
 		for (int x = 0; x < SCREEN_W; x++)
 		{
 			uint16_t pixel = sprite_bitmap[y * SCREEN_W + x];
@@ -465,6 +473,20 @@ void cave_video_refresh(cave_machine *machine)
 				framebuffer[y * SCREEN_W + x] = palette_color(machine->palette[index & 0x7FFF]);
 				priority_map[y * SCREEN_W + x] = 0xFF;
 			}
+		}
+	clock_t t4 = clock();
+	{
+		static int reports;
+		double layers = (double)(t1 - t0) * 1000.0 / CLOCKS_PER_SEC;
+		double sprites = (double)(t2 - t1) * 1000.0 / CLOCKS_PER_SEC;
+		double tiles = (double)(t3 - t2) * 1000.0 / CLOCKS_PER_SEC;
+		double compose = (double)(t4 - t3) * 1000.0 / CLOCKS_PER_SEC;
+		if (getenv("ESPRADE_DEBUG_VIDEO_TIME") && reports < 20
+			&& layers + sprites + tiles + compose > 15.0)
+		{
+			fprintf(stderr, "video frame %llu layers=%.1f sprites=%.1f tiles=%.1f compose=%.1f ms\n",
+				(unsigned long long)machine->frame, layers, sprites, tiles, compose);
+			reports++;
 		}
 	}
 	(void)rotation;

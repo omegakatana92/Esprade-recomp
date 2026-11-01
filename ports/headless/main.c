@@ -10,6 +10,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #include "cave/cave.h"
 #include "cave/png.h"
@@ -28,6 +33,27 @@ static uint64_t coin2_frame = UINT64_MAX;
 static uint64_t start2_frame = UINT64_MAX;
 static FILE *wav_file;
 static uint32_t wav_data_bytes;
+static double timing_last;
+static double timing_max;
+static double timing_cpu_last;
+static double timing_cpu_max;
+static uint64_t timing_overruns;
+
+static double now_ms(void)
+{
+#ifdef _WIN32
+	static LARGE_INTEGER frequency;
+	LARGE_INTEGER counter;
+	if (!frequency.QuadPart)
+		QueryPerformanceFrequency(&frequency);
+	QueryPerformanceCounter(&counter);
+	return (double)counter.QuadPart * 1000.0 / (double)frequency.QuadPart;
+#else
+	struct timespec value;
+	timespec_get(&value, TIME_UTC);
+	return (double)value.tv_sec * 1000.0 + (double)value.tv_nsec / 1000000.0;
+#endif
+}
 
 static uint64_t fnv1a(const void *data, size_t size, uint64_t seed)
 {
@@ -44,6 +70,23 @@ static uint64_t fnv1a(const void *data, size_t size, uint64_t seed)
 static void frame_ready(cave_machine *machine, void *user)
 {
 	(void)user;
+	double timing_now = now_ms();
+	double cpu_now = (double)clock() * 1000.0 / CLOCKS_PER_SEC;
+	if (timing_cpu_last > 0)
+	{
+		double cpu_delta = cpu_now - timing_cpu_last;
+		if (cpu_delta > timing_cpu_max) timing_cpu_max = cpu_delta;
+	}
+	timing_cpu_last = cpu_now;
+	if (timing_last > 0)
+	{
+		double delta = timing_now - timing_last;
+		if (delta > timing_max)
+			timing_max = delta;
+		if (delta > 17.4)
+			timing_overruns++;
+	}
+	timing_last = timing_now;
 	uint16_t pressed = 0;
 	uint16_t pressed2 = 0;
 	if (machine->frame >= coin_frame && machine->frame < coin_frame + 6)
@@ -75,8 +118,9 @@ static void frame_ready(cave_machine *machine, void *user)
 			(unsigned long long)ram, (unsigned long long)palette, (unsigned long long)combined);
 	hashes = combined;
 	if (verbose && (machine->frame % 10 == 0 || machine->frame == 1))
-		fprintf(stderr, "frame %llu video=%016llx ram=%016llx\n",
-			(unsigned long long)machine->frame, (unsigned long long)video, (unsigned long long)ram);
+		fprintf(stderr, "frame %llu video=%016llx ram=%016llx max=%.2fms over=%llu\n",
+			(unsigned long long)machine->frame, (unsigned long long)video, (unsigned long long)ram,
+			timing_max, (unsigned long long)timing_overruns);
 	if (png_path && machine->frame == png_frame)
 	{
 		if (cave_png_write(png_path, cave_video_frame(machine), 320, 240))
@@ -237,10 +281,11 @@ int main(int argc, char **argv)
 			machine->video_regs[3], machine->video_regs[4], machine->video_regs[5]);
 	}
 
-	fprintf(stderr, "frames=%llu hashes=%016llx bad=%llu/%llu pc=%06X\n",
+	fprintf(stderr, "frames=%llu hashes=%016llx bad=%llu/%llu pc=%06X frame_max=%.2fms cpu_max=%.2fms video_max=%.2fms over17.4=%llu\n",
 		(unsigned long long)machine->frame, (unsigned long long)hashes,
 		(unsigned long long)machine->bad_reads, (unsigned long long)machine->bad_writes,
-		cpu.pc & 0xFFFFFFu);
+		cpu.pc & 0xFFFFFFu, timing_max, timing_cpu_max, machine->video_ms_max,
+		(unsigned long long)timing_overruns);
 	if (hash_file)
 		fclose(hash_file);
 	if (wav_file)

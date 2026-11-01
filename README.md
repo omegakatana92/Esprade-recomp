@@ -30,6 +30,14 @@ core and no instruction interpreter is shipped.
 | Linux executable | **Builds and runs**: 60,000 headless frames, same hashes as Windows |
 | Steam Deck AppImage | **Built and launched under Xvfb**; not yet tested on physical SteamOS |
 
+## Performance
+
+The windowed port defaults to an accelerated SDL renderer (Direct3D/OpenGL) and falls back
+to software only if that fails. Fullscreen was previously using software scaling at
+18–30 ms/frame, which starved the fixed-rate audio queue; accelerated fullscreen now holds
+~17.5 ms/frame. Audio is queued from measured wall time, so a late frame no longer slows the
+sound. See `docs/milestones/06-performance.md`.
+
 A successful compilation is not a playable build. Verified results and known gaps live in
 [`docs/status.md`](docs/status.md) and [`docs/milestones/`](docs/milestones/).
 

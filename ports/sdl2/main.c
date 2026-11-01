@@ -38,6 +38,13 @@ typedef struct
 
 static frontend app;
 static int coin_pulse[2];
+static uint64_t perf_last;
+static double perf_max;
+static double perf_sum;
+static int perf_count;
+static double present_max;
+static Uint32 queue_min = UINT32_MAX;
+static Uint32 queue_max;
 
 static void rotate_270(const uint32_t *source, uint32_t *destination)
 {
@@ -49,13 +56,32 @@ static void rotate_270(const uint32_t *source, uint32_t *destination)
 
 static void queue_audio(cave_machine *machine)
 {
-	static int16_t buffer[2048];
-	int frames = (int)(44100.0 / (15625.0 / 271.5));
-	if (frames > 1024)
-		frames = 1024;
+	static int16_t buffer[4096];
+	static uint64_t last_counter;
+	static double remainder;
+	uint64_t now = SDL_GetPerformanceCounter();
+	double frequency = (double)SDL_GetPerformanceFrequency();
+	int frames;
+	if (!last_counter)
+		frames = (int)(44100.0 / (15625.0 / 271.5));
+	else
+	{
+		double seconds = (double)(now - last_counter) / frequency;
+		double exact = seconds * 44100.0 + remainder;
+		frames = (int)exact;
+		remainder = exact - frames;
+	}
+	last_counter = now;
+	if (frames < 1) frames = 1;
+	if (frames > 2048) frames = 2048;
 	ymz280b_render(machine, buffer, frames);
 	if (app.audio)
+	{
 		SDL_QueueAudio(app.audio, buffer, (Uint32)(frames * 2 * sizeof(int16_t)));
+		Uint32 queued = SDL_GetQueuedAudioSize(app.audio);
+		if (queued < queue_min) queue_min = queued;
+		if (queued > queue_max) queue_max = queued;
+	}
 }
 
 static void apply_buttons(cave_machine *machine)
@@ -125,18 +151,43 @@ static void present(void)
 	if (!app.renderer || !app.texture)
 		return;
 	if (getenv("ESPRADE_DEBUG_SDL")) fprintf(stderr, "present: rotate\n");
+	uint64_t start = SDL_GetPerformanceCounter();
 	rotate_270(cave_video_frame(cave_current), app.rotated);
 	if (getenv("ESPRADE_DEBUG_SDL")) fprintf(stderr, "present: update\n");
 	SDL_UpdateTexture(app.texture, NULL, app.rotated, 240 * sizeof(uint32_t));
 	SDL_RenderClear(app.renderer);
 	SDL_RenderCopy(app.renderer, app.texture, NULL, NULL);
 	SDL_RenderPresent(app.renderer);
-	if (getenv("ESPRADE_DEBUG_SDL")) fprintf(stderr, "present: done\n");
+	double elapsed = (double)(SDL_GetPerformanceCounter() - start) * 1000.0
+		/ (double)SDL_GetPerformanceFrequency();
+	if (elapsed > present_max) present_max = elapsed;
+	if (getenv("ESPRADE_DEBUG_SDL")) fprintf(stderr, "present: done %.2fms\n", elapsed);
 }
 
 static void frame_ready(cave_machine *machine, void *user)
 {
 	(void)user;
+	uint64_t now_counter = SDL_GetPerformanceCounter();
+	double frequency = (double)SDL_GetPerformanceFrequency();
+	if (perf_last)
+	{
+		double delta = (double)(now_counter - perf_last) * 1000.0 / frequency;
+		perf_sum += delta;
+		perf_count++;
+		if (delta > perf_max) perf_max = delta;
+	}
+	perf_last = now_counter;
+	if (getenv("ESPRADE_DEBUG_TIMING") && machine->frame % 60 == 0 && perf_count)
+	{
+		fprintf(stderr, "frame %llu avg=%.2fms max=%.2fms present_max=%.2fms audio_q=%u..%u\n",
+			(unsigned long long)machine->frame, perf_sum / perf_count, perf_max, present_max,
+			queue_min, queue_max);
+		perf_sum = 0;
+		perf_count = 0;
+		perf_max = 0;
+		queue_min = UINT32_MAX;
+		queue_max = 0;
+	}
 	if (getenv("ESPRADE_DEBUG_SDL")) fprintf(stderr, "frame %llu start\n", (unsigned long long)machine->frame);
 	SDL_Event event;
 	while (SDL_PollEvent(&event))
@@ -200,7 +251,7 @@ int main(int argc, char **argv)
 	const char *rom = NULL;
 	int fullscreen = 0;
 	int audio_enabled = 1;
-	int accelerated = 0;
+	int accelerated = 1;
 	for (int index = 1; index < argc; index++)
 	{
 		if (strcmp(argv[index], "--rom") == 0 && index + 1 < argc)
@@ -213,6 +264,8 @@ int main(int argc, char **argv)
 			audio_enabled = 0;
 		else if (strcmp(argv[index], "--accelerated") == 0)
 			accelerated = 1;
+		else if (strcmp(argv[index], "--software") == 0)
+			accelerated = 0;
 	}
 
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0)
@@ -228,6 +281,8 @@ int main(int argc, char **argv)
 	app.renderer = SDL_CreateRenderer(app.window, -1,
 		accelerated ? SDL_RENDERER_ACCELERATED : SDL_RENDERER_SOFTWARE);
 	if (!app.renderer)
+		app.renderer = SDL_CreateRenderer(app.window, -1, SDL_RENDERER_SOFTWARE);
+	if (!app.renderer)
 		app.renderer = SDL_CreateRenderer(app.window, -1, 0);
 	SDL_RenderSetLogicalSize(app.renderer, 240, 320);
 	app.texture = SDL_CreateTexture(app.renderer, SDL_PIXELFORMAT_ARGB8888,
@@ -237,6 +292,12 @@ int main(int argc, char **argv)
 	{
 		fprintf(stderr, "SDL: cannot create the window: %s\n", SDL_GetError());
 		return 2;
+	}
+	{
+		SDL_RendererInfo info;
+		if (SDL_GetRendererInfo(app.renderer, &info) == 0)
+			fprintf(stderr, "renderer: %s%s\n", info.name,
+				(info.flags & SDL_RENDERER_ACCELERATED) ? " (accelerated)" : " (software)");
 	}
 	int opened = 0;
 	for (int index = 0; index < SDL_NumJoysticks() && opened < 2; index++)

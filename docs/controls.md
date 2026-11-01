@@ -30,3 +30,9 @@
 Player 2 uses the first two SDL game controllers: player 1 takes the first, player 2 the
 second. The keyboard mapping above is always available. Steam Deck controls appear as a
 standard SDL game controller.
+
+## Renderer
+
+The port uses an accelerated SDL renderer by default and falls back to software if it
+cannot be created. Force software with `--software`; force accelerated with `--accelerated`.
+The chosen renderer is printed at startup.

@@ -101,6 +101,8 @@ cave_machine *cave_machine_create(void)
 	machine->input1 = 0;
 	eeprom_reset(machine);
 	ymz280b_reset(machine);
+	for (int layer = 0; layer < DDP_LAYER_COUNT; layer++)
+		machine->layer_dirty[layer] = 1;
 	cave_current = machine;
 	return machine;
 }
@@ -256,16 +258,19 @@ void cave_write16(uint32_t address, uint16_t value, uint16_t mem_mask)
 	if (address >= 0x500000u && address < 0x508000u)
 	{
 		ram_write16(m->layer_ram[0], DDP_LAYER_SIZE, address - 0x500000u, value, mem_mask);
+		m->layer_dirty[0] = 1;
 		return;
 	}
 	if (address >= 0x600000u && address < 0x608000u)
 	{
 		ram_write16(m->layer_ram[1], DDP_LAYER_SIZE, address - 0x600000u, value, mem_mask);
+		m->layer_dirty[1] = 1;
 		return;
 	}
 	if (address >= 0x700000u && address < 0x708000u)
 	{
 		ram_write16(m->layer_ram[2], DDP_LAYER_SIZE, address - 0x700000u, value, mem_mask);
+		m->layer_dirty[2] = 1;
 		return;
 	}
 
@@ -288,6 +293,8 @@ void cave_write16(uint32_t address, uint16_t value, uint16_t mem_mask)
 		if (mem_mask & 0xFF00u) old = (uint16_t)((old & 0x00FFu) | (value & 0xFF00u));
 		if (mem_mask & 0x00FFu) old = (uint16_t)((old & 0xFF00u) | (value & 0x00FFu));
 		m->layer_regs[0][offset] = old;
+		if (offset == 1)
+			m->layer_dirty[0] = 1;
 		return;
 	}
 	if (address >= 0xA00000u && address < 0xA00006u)
@@ -297,6 +304,8 @@ void cave_write16(uint32_t address, uint16_t value, uint16_t mem_mask)
 		if (mem_mask & 0xFF00u) old = (uint16_t)((old & 0x00FFu) | (value & 0xFF00u));
 		if (mem_mask & 0x00FFu) old = (uint16_t)((old & 0xFF00u) | (value & 0x00FFu));
 		m->layer_regs[1][offset] = old;
+		if (offset == 1)
+			m->layer_dirty[1] = 1;
 		return;
 	}
 	if (address >= 0xB00000u && address < 0xB00006u)
@@ -306,6 +315,8 @@ void cave_write16(uint32_t address, uint16_t value, uint16_t mem_mask)
 		if (mem_mask & 0xFF00u) old = (uint16_t)((old & 0x00FFu) | (value & 0xFF00u));
 		if (mem_mask & 0x00FFu) old = (uint16_t)((old & 0xFF00u) | (value & 0x00FFu));
 		m->layer_regs[2][offset] = old;
+		if (offset == 1)
+			m->layer_dirty[2] = 1;
 		return;
 	}
 
