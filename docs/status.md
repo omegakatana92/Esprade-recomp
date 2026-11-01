@@ -7,7 +7,7 @@ Updated: 2026-10-31
 | Check | Command | Result |
 | --- | --- | --- |
 | ROM integrity | `python tools/verify_rom.py C:\Users\omega\Downloads\esprade.zip` | 13/13 files, CRC32 + SHA-1 |
-| Static analysis | `python tools/disassemble.py ...` | 51k+ instructions, ~700 functions, no invalid paths |
+| Static analysis | `python tools/disassemble.py ...` | 50,629 instructions, 734 functions, no invalid paths |
 | Static translation | `python tools/recompile.py ...` | 0 unsupported instructions |
 | Headless boot | `--frames 600` | exit 0, 0 bad reads/writes |
 | Attract/gameplay | `--frames 60000 --coin 2400 --start 2600` | 60,000 frames, 0 bad reads/writes, no missing targets |

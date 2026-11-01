@@ -20,7 +20,7 @@ core and no instruction interpreter is shipped.
 | --- | --- |
 | ROM verification | **Working**: 13/13 files by CRC32 + SHA-1 (World set) |
 | Static analysis | **Working**: 34,945 instructions, 386 functions, no unresolved paths |
-| Native translation | **Working**: 1,561 C functions, 0 unsupported instructions |
+| Native translation | **Working**: 2,000+ C functions, 0 unsupported instructions |
 | Headless boot | **Working**: 600 frames, 0 bad bus accesses, 0 missing code |
 | Video | **Working**: title, warning, in-game and ranking screens verified |
 | Audio | **Working**: YMZ280B ADPCM/PCM mixer, 44.1 kHz stereo WAV verified |
