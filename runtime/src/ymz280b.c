@@ -445,3 +445,21 @@ void ymz280b_render(cave_machine *machine, int16_t *samples, int frames)
 		}
 	}
 }
+
+void cave_audio_render(cave_machine *machine, int16_t *samples, int frames)
+{
+	static int16_t chip[8192];
+	if (frames <= 0)
+		return;
+	if (frames > 2048)
+		frames = 2048;
+	ymz280b_render(machine, chip, frames * 2);
+	for (int index = 0; index < frames; index++)
+	{
+		/* 88.2 kHz -> 44.1 kHz: average each pair (simple 2:1 decimation). */
+		samples[index * 2 + 0] = (int16_t)(((int32_t)chip[index * 4 + 0]
+			+ (int32_t)chip[index * 4 + 2]) / 2);
+		samples[index * 2 + 1] = (int16_t)(((int32_t)chip[index * 4 + 1]
+			+ (int32_t)chip[index * 4 + 3]) / 2);
+	}
+}

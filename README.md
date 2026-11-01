@@ -32,11 +32,13 @@ core and no instruction interpreter is shipped.
 
 ## Performance
 
-The windowed port defaults to an accelerated SDL renderer (Direct3D/OpenGL) and falls back
-to software only if that fails. Fullscreen was previously using software scaling at
-18–30 ms/frame, which starved the fixed-rate audio queue; accelerated fullscreen now holds
-~17.5 ms/frame. Audio is queued from measured wall time, so a late frame no longer slows the
-sound. See `docs/milestones/06-performance.md`.
+The windowed port defaults to an accelerated SDL renderer and uses an absolute-deadline
+scheduler at 57.55 Hz. Fullscreen measurements: **57.55 simulated/presented FPS**, p99
+≈21 ms, 0 missed deadlines, audio latency ≈41–63 ms (≈52 ms average), 0 underruns.
+Audio is generated at the YMZ280B's 88.2 kHz internal rate and decimated to 44.1 kHz from
+the simulated frame clock, then converted to the obtained SDL device format.
+`--stats` prints the full timing/queue diagnostics. See
+`docs/milestones/07-timing-and-audio.md`.
 
 A successful compilation is not a playable build. Verified results and known gaps live in
 [`docs/status.md`](docs/status.md) and [`docs/milestones/`](docs/milestones/).

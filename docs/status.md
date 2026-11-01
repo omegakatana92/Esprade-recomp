@@ -36,14 +36,19 @@ Updated: 2026-10-31
 - **Interactive controls**: coin/start for both players are wired and were exercised
   (Windows window and headless). Player 2 uses the second SDL controller. Movement,
   shot/bomb and fullscreen are implemented but not yet exercised against gameplay.
-- **Performance**: accelerated rendering is now the default and holds the frame budget in
-  fullscreen; software rendering is available for compatibility but can drop below
-  57.55 Hz at large resolutions.
+- **Performance**: the scheduler now uses an absolute high-resolution deadline at
+  57.55 Hz; fullscreen measured 57.55 simulated/presented FPS with p99 ≈21 ms and no
+  missed deadlines. Windowed mode is stable while focused; an occluded window can be
+  throttled by the desktop compositor.
+- **Audio**: YMZ280B runs at its 88.2 kHz internal rate and is decimated to 44.1 kHz;
+  device-format conversion, fractional sample accumulation and a bounded queue are in
+  place. Measured latency ≈41–63 ms, no underruns in the fullscreen run.
 - **Steam Deck**: the AppImage is built and launches under Xvfb, but it has not been run on
   a physical SteamOS device; Steam Input, Gaming Mode and audio device selection remain
   unverified.
-- **MAME frame comparison**: no reference trace has been recorded; pixel-exact comparison
-  with MAME is future work.
+- **MAME gameplay comparison**: a MAME 0.289 AVI/WAV reference was recorded and confirms
+  the 57.55 Hz/240x320 presentation, but an input-matched Stage 1 A/B comparison is still
+  open.
 - **Analysis coverage**: ~200 KiB of the 1 MiB program is classified as code. The trace
   loop covers the attract/gameplay paths exercised so far; other modes (service menu,
   endings, both players) may still reveal unseeded handlers.

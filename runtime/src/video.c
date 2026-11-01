@@ -372,17 +372,123 @@ void cave_video_refresh(cave_machine *machine)
 	build_sprites(machine);
 	clock_t t2 = clock();
 	int mask = layers_enabled();
+	int sampled_layers = 0;
+	int rowscroll_layers = 0;
+	int rowselect_layers = 0;
+	int opaque_pixels = 0;
 
-	uint32_t background = palette_color(0);
-	if (machine->palette[0x7F00])
-		background = palette_color(machine->palette[0x7F00]);
-	memset(framebuffer, 0, SCREEN_W * SCREEN_H * sizeof(uint32_t));
+	if (machine->palette_dirty)
+	{
+		for (int index = 0; index < (int)DDP_PALETTE_COUNT; index++)
+			machine->palette_rgb[index] = palette_color(machine->palette[index]);
+		machine->palette_dirty = 0;
+	}
+
+	typedef struct
+	{
+		int enabled;
+		int pri2;
+		int flipx;
+		int flipy;
+		int rowscroll_en;
+		int rowselect_en;
+		int sx;
+		int sy;
+		int offs_row;
+		const uint8_t *pen;
+		const uint8_t *color;
+		const uint8_t *category;
+	} layer_view;
+
+	layer_view view[DDP_LAYER_COUNT];
+	int16_t xmap[DDP_LAYER_COUNT][SCREEN_W];
+	for (int layer = 0; layer < DDP_LAYER_COUNT; layer++)
+	{
+		memset(&view[layer], 0, sizeof(view[layer]));
+		if (!(mask & (1 << layer)))
+			continue;
+		const uint16_t *registers = machine->layer_regs[layer];
+		if (registers[2] & 0x10)              /* BIT(~vregs[2], 4): disabled */
+			continue;
+		int pri2 = registers[2] & 0x0F;
+		if (pri2 > 3)
+			continue;
+		int tiledim = (registers[1] >> 13) & 1;
+		int flipx = !(registers[0] & 0x8000);
+		int flipy = !(registers[1] & 0x8000);
+		int offs_x = 0x13 - (layer + 1 + (tiledim ? 0 : 8));
+		int offs_y = -0x12;
+		int sx = (registers[0] & 0x1FF) - machine->video_regs[0]
+			+ (flipx ? offs_x + 2 : -offs_x);
+		int sy = (registers[1] & 0x1FF) - machine->video_regs[1]
+			+ (flipy ? offs_y + 2 : -offs_y);
+		view[layer].enabled = 1;
+		view[layer].pri2 = pri2;
+		view[layer].flipx = flipx;
+		view[layer].flipy = flipy;
+		view[layer].rowscroll_en = (registers[0] & 0x4000) != 0;
+		view[layer].rowselect_en = (registers[1] & 0x4000) != 0;
+		view[layer].sx = sx;
+		view[layer].sy = sy;
+		view[layer].offs_row = flipy ? 1 : -1;
+		view[layer].pen = machine->layer_pen[layer];
+		view[layer].color = machine->layer_color[layer];
+		view[layer].category = machine->layer_cat[layer];
+		sampled_layers++;
+		if (view[layer].rowscroll_en) rowscroll_layers++;
+		if (view[layer].rowselect_en) rowselect_layers++;
+		if (!view[layer].rowscroll_en)
+		{
+			int xpos = flipx ? (sx - 192) : (-sx);
+			for (int x = 0; x < SCREEN_W; x++)
+			{
+				int raw = (x - xpos) & 511;
+				xmap[layer][x] = (int16_t)(flipx ? 511 - raw : raw);
+			}
+		}
+	}
+
+	uint32_t background = machine->palette_rgb[0x7F00];
 	for (int index = 0; index < SCREEN_W * SCREEN_H; index++)
 		framebuffer[index] = background;
 	memset(priority_map, 0, SCREEN_W * SCREEN_H);
 
 	for (int y = 0; y < SCREEN_H; y++)
 	{
+		const uint8_t *row_pen[DDP_LAYER_COUNT];
+		const uint8_t *row_color[DDP_LAYER_COUNT];
+		const uint8_t *row_category[DDP_LAYER_COUNT];
+		for (int layer = 0; layer < DDP_LAYER_COUNT; layer++)
+		{
+			if (!view[layer].enabled)
+				continue;
+			int sx = view[layer].sx;
+			if (view[layer].rowscroll_en)
+			{
+				sx += get16(machine->layer_ram[layer],
+					0x1000 + (((view[layer].sy + view[layer].offs_row + y) & 0x1FF) * 4));
+				int xpos = view[layer].flipx ? (sx - 192) : (-sx);
+				for (int x = 0; x < SCREEN_W; x++)
+				{
+					int raw = (x - xpos) & 511;
+					xmap[layer][x] = (int16_t)(view[layer].flipx ? 511 - raw : raw);
+				}
+			}
+			int source_y;
+			if (view[layer].rowselect_en)
+				source_y = get16(machine->layer_ram[layer],
+					0x1000 + (((view[layer].sy + view[layer].offs_row + y) & 0x1FF) * 4) + 2) & 511;
+			else
+			{
+				int ypos = view[layer].flipy ? (view[layer].sy - 272) : (-view[layer].sy);
+				int rawy = (y - ypos) & 511;
+				source_y = view[layer].flipy ? 511 - rawy : rawy;
+			}
+			row_pen[layer] = view[layer].pen + source_y * TILEMAP_W;
+			row_color[layer] = view[layer].color + source_y * TILEMAP_W;
+			row_category[layer] = view[layer].category + source_y * TILEMAP_W;
+		}
+
 		for (int x = 0; x < SCREEN_W; x++)
 		{
 			int best_category = -1;
@@ -393,61 +499,29 @@ void cave_video_refresh(cave_machine *machine)
 
 			for (int layer = 0; layer < DDP_LAYER_COUNT; layer++)
 			{
-				if (!(mask & (1 << layer)))
+				if (!view[layer].enabled)
 					continue;
-				const uint16_t *registers = machine->layer_regs[layer];
-				if (registers[2] & 0x10)          /* BIT(~vregs[2], 4): disabled */
-					continue;
-				int pri2 = registers[2] & 0x0F;
-				if (pri2 > 3)
-					continue;
-				int tiledim = (registers[1] >> 13) & 1;
-				int flipx = !(registers[0] & 0x8000);
-				int flipy = !(registers[1] & 0x8000);
-				int offs_x = 0x13 - (layer + 1 + (tiledim ? 0 : 8));
-				int offs_y = -0x12;
-				int sx = (registers[0] & 0x1FF) - machine->video_regs[0]
-					+ (flipx ? offs_x + 2 : -offs_x);
-				int sy = (registers[1] & 0x1FF) - machine->video_regs[1]
-					+ (flipy ? offs_y + 2 : -offs_y);
-				int rowscroll_en = (registers[0] & 0x4000) != 0;
-				int rowselect_en = (registers[1] & 0x4000) != 0;
-				int offs_row = flipy ? 1 : -1;
-				if (rowscroll_en)
-					sx += get16(machine->layer_ram[layer], 0x1000 + (((sy + offs_row + y) & 0x1FF) * 4));
-				int xpos = flipx ? (sx - 192) : (-sx);
-				int rawx = (x - xpos) & 511;
-				int source_x = flipx ? 511 - rawx : rawx;
-				int source_y;
-				if (rowselect_en)
-					source_y = get16(machine->layer_ram[layer],
-						0x1000 + (((sy + offs_row + y) & 0x1FF) * 4) + 2) & 511;
-				else
-				{
-					int ypos = flipy ? (sy - 272) : (-sy);
-					int rawy = (y - ypos) & 511;
-					source_y = flipy ? 511 - rawy : rawy;
-				}
-				int offset = source_y * TILEMAP_W + source_x;
-				uint8_t pen = machine->layer_pen[layer][offset];
+				int source_x = xmap[layer][x];
+				uint8_t pen = row_pen[layer][source_x];
 				if (!pen)
 					continue;
-				int category = machine->layer_cat[layer][offset];
+				int category = row_category[layer][source_x];
 				if (category > best_category
-					|| (category == best_category && pri2 >= best_pri2))
+					|| (category == best_category && view[layer].pri2 >= best_pri2))
 				{
 					best_category = category;
-					best_pri2 = pri2;
+					best_pri2 = view[layer].pri2;
 					best_layer = layer;
 					best_pen = pen;
-					best_color = machine->layer_color[layer][offset];
+					best_color = row_color[layer][source_x];
+					opaque_pixels++;
 				}
 			}
 			(void)best_layer;
 			if (best_category >= 0)
 			{
 				uint32_t index = 0x4000u + best_pen + (uint32_t)best_color * 256u;
-				framebuffer[y * SCREEN_W + x] = palette_color(machine->palette[index & 0x7FFF]);
+				framebuffer[y * SCREEN_W + x] = machine->palette_rgb[index & 0x7FFF];
 				priority_map[y * SCREEN_W + x] = (uint8_t)(best_category + 1);
 			}
 		}
@@ -470,7 +544,7 @@ void cave_video_refresh(cave_machine *machine)
 			if (dstpri <= priority)
 			{
 				uint32_t index = pen + (uint32_t)(colpri & 0x3F) * 256u;
-				framebuffer[y * SCREEN_W + x] = palette_color(machine->palette[index & 0x7FFF]);
+				framebuffer[y * SCREEN_W + x] = machine->palette_rgb[index & 0x7FFF];
 				priority_map[y * SCREEN_W + x] = 0xFF;
 			}
 		}
@@ -484,8 +558,9 @@ void cave_video_refresh(cave_machine *machine)
 		if (getenv("ESPRADE_DEBUG_VIDEO_TIME") && reports < 20
 			&& layers + sprites + tiles + compose > 15.0)
 		{
-			fprintf(stderr, "video frame %llu layers=%.1f sprites=%.1f tiles=%.1f compose=%.1f ms\n",
-				(unsigned long long)machine->frame, layers, sprites, tiles, compose);
+			fprintf(stderr, "video frame %llu layers=%.1f sprites=%.1f tiles=%.1f compose=%.1f ms (sampled=%d rs=%d rsel=%d opaque=%d)\n",
+				(unsigned long long)machine->frame, layers, sprites, tiles, compose,
+				sampled_layers, rowscroll_layers, rowselect_layers, opaque_pixels);
 			reports++;
 		}
 	}

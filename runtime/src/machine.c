@@ -97,6 +97,7 @@ cave_machine *cave_machine_create(void)
 		return NULL;
 	machine->frame_limit = 0;
 	machine->escape_code = 0;
+	machine->palette_dirty = 1;
 	machine->input0 = 0;
 	machine->input1 = 0;
 	eeprom_reset(machine);
@@ -327,6 +328,7 @@ void cave_write16(uint32_t address, uint16_t value, uint16_t mem_mask)
 		if (mem_mask & 0xFF00u) old = (uint16_t)((old & 0x00FFu) | (value & 0xFF00u));
 		if (mem_mask & 0x00FFu) old = (uint16_t)((old & 0xFF00u) | (value & 0x00FFu));
 		m->palette[offset] = old;
+		m->palette_dirty = 1;
 		return;
 	}
 

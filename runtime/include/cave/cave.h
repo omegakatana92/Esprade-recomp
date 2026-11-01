@@ -41,6 +41,8 @@ struct cave_machine
 	uint8_t sprite_ram[DDP_SPRITE_SIZE];
 	uint8_t layer_ram[DDP_LAYER_COUNT][DDP_LAYER_SIZE];
 	uint16_t palette[DDP_PALETTE_COUNT];
+	uint32_t palette_rgb[DDP_PALETTE_COUNT];
+	int palette_dirty;
 	uint16_t video_regs[DDP_VIDEO_REGS];
 	uint16_t layer_regs[DDP_LAYER_COUNT][3];
 
@@ -120,7 +122,10 @@ void cave_video_set_rotation(int quarter_turns);   /* 0, 1, 2, 3: the cabinet is
 void ymz280b_reset(cave_machine *machine);
 void ymz280b_write(cave_machine *machine, uint8_t offset, uint8_t value);
 uint8_t ymz280b_read(cave_machine *machine, uint8_t offset);
+/* Chip-rate mixer (MAME's YMZ280B internal stream runs at 88.2 kHz). */
 void ymz280b_render(cave_machine *machine, int16_t *samples, int frames);
+/* 44.1 kHz stereo output: renders at 88.2 kHz and decimates 2:1. */
+void cave_audio_render(cave_machine *machine, int16_t *samples, int frames);
 void ymz280b_set_irq(cave_machine *machine);
 
 /* EEPROM (runtime/src/eeprom.c) */

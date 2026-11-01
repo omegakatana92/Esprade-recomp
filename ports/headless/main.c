@@ -101,10 +101,13 @@ static void frame_ready(cave_machine *machine, void *user)
 	if (wav_file)
 	{
 		static int16_t audio[2048];
-		int frames = (int)(44100.0 / (15625.0 / 271.5));
+		static double audio_accum;
+		audio_accum += 44100.0 * 271.5 / 15625.0;
+		int frames = (int)audio_accum;
+		audio_accum -= frames;
 		if (frames > 1024)
 			frames = 1024;
-		ymz280b_render(machine, audio, frames);
+		cave_audio_render(machine, audio, frames);
 		fwrite(audio, sizeof(int16_t) * 2, (size_t)frames, wav_file);
 		wav_data_bytes += (uint32_t)frames * 4;
 	}
