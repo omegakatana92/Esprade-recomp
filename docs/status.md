@@ -11,6 +11,7 @@ Updated: 2026-10-31
 | Static translation | `python tools/recompile.py ...` | 0 unsupported instructions |
 | Headless boot | `--frames 600` | exit 0, 0 bad reads/writes |
 | Attract/gameplay | `--frames 60000 --coin 2400 --start 2600` | 60,000 frames, 0 bad reads/writes, no missing targets |
+| Crash regression | `--confirm 3800 --autofire --automove --autobomb --frames 20000` | 20,000 frames, `bad=0/0`, no missing targets; ASan 12,000 frames clean |
 | Title screen | `--png title.png 3000` | logo, "PLEASE INSERT COIN", Atlus/Cave copyright |
 | In-game scene | `--png game7300.png 7300` | street scene with characters/explosion |
 | Score ranking | `--png game30000.png 30000` | fully rendered ranking screen |
@@ -34,17 +35,18 @@ Updated: 2026-10-31
 ## Not yet working / not yet verified
 
 - **Interactive controls**: coin/start for both players are wired and were exercised
-  (Windows window and headless). Player 2 uses the second SDL controller. Autofire/shot was
-  exercised; bomb, movement patterns and fullscreen interaction timing still need a human
-  play test.
+  (Windows window and headless). Player 2 uses the second SDL controller. Deterministic
+  shot, character confirm, movement and bomb paths are exercised by
+  `--confirm/--autofire/--automove/--autobomb`; a human play test is still required.
 - **Performance**: absolute 57.55 Hz scheduler; fullscreen measured 57.55
-  simulated/presented FPS, p99 ≈19.4 ms, 0 missed deadlines in a 12,000-frame
-  coin/start/autofire run. Rendering now happens after the VBLANK handler.
+  simulated/presented FPS, p99 20.1 ms, 0 missed deadlines in a 20,000-frame
+  coin/start/confirm/move/bomb run. Rendering happens after the VBLANK handler.
 - **Audio**: YMZ280B at 88.2 kHz decimated to 44.1 kHz, device-format conversion,
-  fractional sample accumulation, bounded queue. Measured queue latency 21–45 ms
-  (avg ~34 ms), 0 underruns in the fullscreen run.
+  fractional sample accumulation, bounded queue. Measured queue latency 33–52 ms
+  (avg ~43 ms), 0 underruns/overruns in the 20,000-frame run.
 - **Display list**: Stage 1 intro has 0 zero sprite entries in both native and MAME;
-  warning screen pixel-identical to MAME.
+  warning screen pixel-identical to MAME. The green text-heavy transition is the
+  expected Stage 1 intro, not corruption.
 - **Steam Deck**: the AppImage is built and launches under Xvfb, but it has not been run on
   a physical SteamOS device; Steam Input, Gaming Mode and audio device selection remain
   unverified.
@@ -52,8 +54,14 @@ Updated: 2026-10-31
   screen is pixel-identical and the Stage 1 intro has the same zero-sprite count, but a
   full 90 s player-controlled Stage 1 A/B and measured audiovisual offset are still open.
 - **Analysis coverage**: ~200 KiB of the 1 MiB program is classified as code. The trace
-  loop covers the attract/gameplay paths exercised so far; other modes (service menu,
-  endings, both players) may still reveal unseeded handlers.
+  loop covers the attract/gameplay paths exercised so far, including handler `051B62`
+  reached on the player-confirm/move path; other modes (service menu, endings, both
+  players) may still reveal unseeded handlers.
+- **Reported crash**: no `c0000005`/heap-corruption dump was produced by the current
+  source in 20,000 SDL frames or 12,000 ASan frames. The historical dumps predate
+  `48f8c3d` and are consistent with the already-fixed rotation/heap bug. The exact
+  63-second report is still an open reproducer; see
+  `docs/milestones/09-crash-investigation.md`.
 - **Audio fidelity**: the mixer is functional but not yet compared sample-by-sample with
   MAME/ymfm.
 

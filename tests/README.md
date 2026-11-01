@@ -88,3 +88,17 @@ ROM=/path/to/esprade.zip ./scripts/package_appimage.sh
 
 Check the AppImage launches from Desktop and Gaming Mode, audio device opens, and the
 save/config directory is writable (`$XDG_DATA_HOME` / SDL preference path).
+
+## 10. Crash / coverage regression
+
+Run the deterministic player path with movement and bombs:
+
+```powershell
+build\cmake\esprade.exe --rom C:\Users\omega\Downloads\esprade.zip --fullscreen --stats `
+  --coin 2400 --start 2600 --confirm 3800 --autofire --automove --autobomb --frames 20000
+```
+
+Expected: `frames=20000 bad_reads=0 bad_writes=0`, no `m68k: no translated code` line,
+and no Windows crash dump. This path reaches the Stage 1 combat and large-enemy section
+and covers the `051B62` handler that previously terminated the SDL loop at frame 5276.
+The ASan equivalent uses `build/asan/esprade.exe` with the same arguments.

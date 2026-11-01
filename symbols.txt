@@ -254,6 +254,7 @@
 051B42  func  trace_051B42
 051B4A  func  trace_051B4A
 051B52  func  trace_051B52
+051B62  func  trace_051B62
 051B6A  func  trace_051B6A
 # --- end trace-seeded handlers ---
 

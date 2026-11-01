@@ -43,8 +43,11 @@ static frontend app;
 static int coin_pulse[2];
 static uint64_t auto_coin = UINT64_MAX;
 static uint64_t auto_start = UINT64_MAX;
+static uint64_t auto_confirm = UINT64_MAX;
 static uint64_t run_frames;
 static int autofire;
+static int automove;
+static int autobomb;
 
 /* scheduler and diagnostics */
 static uint64_t perf_frequency;
@@ -215,8 +218,20 @@ static void apply_buttons(cave_machine *machine)
 		p1 |= 0x0100;
 	if (machine->frame >= auto_start && machine->frame < auto_start + 8)
 		p1 |= 0x0080;
+	if (machine->frame >= auto_confirm && machine->frame < auto_confirm + 8)
+		p1 |= 0x0080;
 	if (autofire && machine->frame > auto_start + 60)
 		p1 |= 0x0010;
+	if (automove && machine->frame > auto_confirm + 60)
+	{
+		uint64_t phase = (machine->frame / 30) % 4;
+		if (phase == 0) p1 |= 0x0004;
+		else if (phase == 1) p1 |= 0x0008;
+		else if (phase == 2) p1 |= 0x0001;
+		else p1 |= 0x0002;
+	}
+	if (autobomb && machine->frame > auto_confirm + 120 && (machine->frame % 300) < 6)
+		p1 |= 0x0020;
 	cave_set_inputs(machine, p1, p2);
 }
 
@@ -462,10 +477,16 @@ int main(int argc, char **argv)
 			auto_coin = strtoull(argv[++index], NULL, 10);
 		else if (strcmp(argv[index], "--start") == 0 && index + 1 < argc)
 			auto_start = strtoull(argv[++index], NULL, 10);
+		else if (strcmp(argv[index], "--confirm") == 0 && index + 1 < argc)
+			auto_confirm = strtoull(argv[++index], NULL, 10);
 		else if (strcmp(argv[index], "--frames") == 0 && index + 1 < argc)
 			run_frames = strtoull(argv[++index], NULL, 10);
 		else if (strcmp(argv[index], "--autofire") == 0)
 			autofire = 1;
+		else if (strcmp(argv[index], "--automove") == 0)
+			automove = 1;
+		else if (strcmp(argv[index], "--autobomb") == 0)
+			autobomb = 1;
 	}
 
 	SDL_SetHint(SDL_HINT_TIMER_RESOLUTION, "1");
