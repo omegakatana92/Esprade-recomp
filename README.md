@@ -26,7 +26,7 @@ core and no instruction interpreter is shipped.
 | Audio | **Working**: YMZ280B ADPCM/PCM mixer, 44.1 kHz stereo WAV verified |
 | Inputs | **Working headless**: coin/start; SDL mapping implemented |
 | Gameplay | **Verified 60,000 frames** with no missing code or bad bus access |
-| Windows executable | **Builds and launches**: SDL warning/title screen verified |
+| Windows executable | **Builds and launches**: warning/title and coin/start gameplay verified |
 | Linux executable | **Builds and runs**: 60,000 headless frames, same hashes as Windows |
 | Steam Deck AppImage | **Built and launched under Xvfb**; not yet tested on physical SteamOS |
 
