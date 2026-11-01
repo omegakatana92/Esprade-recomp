@@ -27,5 +27,6 @@
 | Start | Start |
 | Coin | Back |
 
-Player 2 gamepad support is not yet mapped; the second player can use the keyboard
-mapping above. Steam Deck controls appear as a standard SDL game controller.
+Player 2 uses the first two SDL game controllers: player 1 takes the first, player 2 the
+second. The keyboard mapping above is always available. Steam Deck controls appear as a
+standard SDL game controller.

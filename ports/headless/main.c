@@ -24,6 +24,8 @@ static const char *png_path;
 static uint64_t png_frame;
 static uint64_t coin_frame = UINT64_MAX;
 static uint64_t start_frame = UINT64_MAX;
+static uint64_t coin2_frame = UINT64_MAX;
+static uint64_t start2_frame = UINT64_MAX;
 static FILE *wav_file;
 static uint32_t wav_data_bytes;
 
@@ -43,11 +45,16 @@ static void frame_ready(cave_machine *machine, void *user)
 {
 	(void)user;
 	uint16_t pressed = 0;
+	uint16_t pressed2 = 0;
 	if (machine->frame >= coin_frame && machine->frame < coin_frame + 6)
 		pressed |= 0x0100;                 /* coin 1, active low on the port */
 	if (machine->frame >= start_frame && machine->frame < start_frame + 6)
 		pressed |= 0x0080;                 /* start 1 */
-	cave_set_inputs(machine, pressed, 0);
+	if (machine->frame >= coin2_frame && machine->frame < coin2_frame + 6)
+		pressed2 |= 0x0100;                /* coin 2 */
+	if (machine->frame >= start2_frame && machine->frame < start2_frame + 6)
+		pressed2 |= 0x0080;                /* start 2 */
+	cave_set_inputs(machine, pressed, pressed2);
 	if (wav_file)
 	{
 		static int16_t audio[2048];
@@ -107,6 +114,10 @@ int main(int argc, char **argv)
 			coin_frame = strtoull(argv[++index], NULL, 10);
 		else if (strcmp(argv[index], "--start") == 0 && index + 1 < argc)
 			start_frame = strtoull(argv[++index], NULL, 10);
+		else if (strcmp(argv[index], "--coin2") == 0 && index + 1 < argc)
+			coin2_frame = strtoull(argv[++index], NULL, 10);
+		else if (strcmp(argv[index], "--start2") == 0 && index + 1 < argc)
+			start2_frame = strtoull(argv[++index], NULL, 10);
 		else if (strcmp(argv[index], "--wav") == 0 && index + 1 < argc)
 			wav_path = argv[++index];
 		else if (strcmp(argv[index], "--verbose") == 0)
@@ -114,7 +125,8 @@ int main(int argc, char **argv)
 		else if (strcmp(argv[index], "--help") == 0 || strcmp(argv[index], "-h") == 0)
 		{
 			printf("usage: esprade_headless --rom rom\\esprade.zip [--frames N] [--hashes file]\n"
-				"       [--eeprom file] [--png file frame] [--coin frame] [--start frame] [--wav file]\n");
+				"       [--eeprom file] [--png file frame] [--coin frame] [--start frame]\n"
+				"       [--coin2 frame] [--start2 frame] [--wav file]\n");
 			return 0;
 		}
 		else

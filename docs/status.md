@@ -33,9 +33,9 @@ Updated: 2026-10-31
 
 ## Not yet working / not yet verified
 
-- **Interactive controls**: the window opens and renders; coin/start were sent to the
-  focused window and reached a gameplay scene (1P started). Movement, shot/bomb and
-  fullscreen are implemented but not yet exercised against gameplay.
+- **Interactive controls**: coin/start for both players are wired and were exercised
+  (Windows window and headless). Player 2 uses the second SDL controller. Movement,
+  shot/bomb and fullscreen are implemented but not yet exercised against gameplay.
 - **Steam Deck**: the AppImage is built and launches under Xvfb, but it has not been run on
   a physical SteamOS device; Steam Input, Gaming Mode and audio device selection remain
   unverified.

@@ -32,6 +32,7 @@ typedef struct
 	int width, height;
 	int fullscreen;
 	SDL_GameController *controller;
+	SDL_GameController *controller2;
 	SDL_AudioDeviceID audio;
 } frontend;
 
@@ -93,6 +94,18 @@ static void apply_buttons(cave_machine *machine)
 		if (SDL_GameControllerGetButton(app.controller, SDL_CONTROLLER_BUTTON_X)) p1 |= 0x0040;
 		if (SDL_GameControllerGetButton(app.controller, SDL_CONTROLLER_BUTTON_START)) p1 |= 0x0080;
 		if (SDL_GameControllerGetButton(app.controller, SDL_CONTROLLER_BUTTON_BACK)) coin_pulse[0] = 1;
+	}
+	if (app.controller2)
+	{
+		if (SDL_GameControllerGetButton(app.controller2, SDL_CONTROLLER_BUTTON_DPAD_UP)) p2 |= 0x0001;
+		if (SDL_GameControllerGetButton(app.controller2, SDL_CONTROLLER_BUTTON_DPAD_DOWN)) p2 |= 0x0002;
+		if (SDL_GameControllerGetButton(app.controller2, SDL_CONTROLLER_BUTTON_DPAD_LEFT)) p2 |= 0x0004;
+		if (SDL_GameControllerGetButton(app.controller2, SDL_CONTROLLER_BUTTON_DPAD_RIGHT)) p2 |= 0x0008;
+		if (SDL_GameControllerGetButton(app.controller2, SDL_CONTROLLER_BUTTON_A)) p2 |= 0x0010;
+		if (SDL_GameControllerGetButton(app.controller2, SDL_CONTROLLER_BUTTON_B)) p2 |= 0x0020;
+		if (SDL_GameControllerGetButton(app.controller2, SDL_CONTROLLER_BUTTON_X)) p2 |= 0x0040;
+		if (SDL_GameControllerGetButton(app.controller2, SDL_CONTROLLER_BUTTON_START)) p2 |= 0x0080;
+		if (SDL_GameControllerGetButton(app.controller2, SDL_CONTROLLER_BUTTON_BACK)) coin_pulse[1] = 1;
 	}
 	if (coin_pulse[0] > 0)
 	{
@@ -225,13 +238,20 @@ int main(int argc, char **argv)
 		fprintf(stderr, "SDL: cannot create the window: %s\n", SDL_GetError());
 		return 2;
 	}
-	for (int index = 0; index < SDL_NumJoysticks(); index++)
+	int opened = 0;
+	for (int index = 0; index < SDL_NumJoysticks() && opened < 2; index++)
 	{
 		if (SDL_IsGameController(index))
 		{
-			app.controller = SDL_GameControllerOpen(index);
-			if (app.controller)
-				break;
+			SDL_GameController *controller = SDL_GameControllerOpen(index);
+			if (controller)
+			{
+				if (opened == 0)
+					app.controller = controller;
+				else
+					app.controller2 = controller;
+				opened++;
+			}
 		}
 	}
 
@@ -294,6 +314,8 @@ int main(int argc, char **argv)
 		SDL_CloseAudioDevice(app.audio);
 	if (app.controller)
 		SDL_GameControllerClose(app.controller);
+	if (app.controller2)
+		SDL_GameControllerClose(app.controller2);
 	SDL_DestroyTexture(app.texture);
 	SDL_DestroyRenderer(app.renderer);
 	SDL_DestroyWindow(app.window);

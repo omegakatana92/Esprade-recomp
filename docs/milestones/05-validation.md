@@ -21,6 +21,7 @@ run.
 | Audio WAV | Windows headless | 44.1 kHz stereo, RMS ~3178, peak 32129 |
 | Windows SDL launch | Windows 11 | window alive after 8 s, warning/title screen captured |
 | Windows SDL coin/start | Windows 11 | sent 5 then 1 to the focused window; gameplay scene reached (1P started, "PUSH 2P START") |
+| Two-player start | Windows headless | coin/start for both players reached the character-select/how-to-play screen at frame 7000 |
 | AppImage build | Ubuntu 22.04 WSL2 | 7.6 MB AppImage produced |
 | AppImage headless | Ubuntu 22.04 WSL2 | 600 frames, `bad=0/0` |
 | AppImage SDL launch | Xvfb | reached reset, alive until timeout |
