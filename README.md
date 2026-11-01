@@ -27,7 +27,8 @@ core and no instruction interpreter is shipped.
 | Inputs | **Working headless**: coin/start; SDL mapping implemented |
 | Gameplay | **Verified 60,000 frames** with no missing code or bad bus access |
 | Windows executable | **Builds and launches**: SDL warning/title screen verified |
-| Steam Deck AppImage | **Not built yet** |
+| Linux executable | **Builds and runs**: 60,000 headless frames, same hashes as Windows |
+| Steam Deck AppImage | **Built and launched under Xvfb**; not yet tested on physical SteamOS |
 
 A successful compilation is not a playable build. Verified results and known gaps live in
 [`docs/status.md`](docs/status.md) and [`docs/milestones/`](docs/milestones/).

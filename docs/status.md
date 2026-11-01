@@ -17,7 +17,8 @@ Updated: 2026-10-31
 | Audio | `--wav build/audio.wav` | 44.1 kHz stereo, RMS 3800, peak 32768 |
 | Windows window | `esprade.exe --rom ...` | SDL window opens, warning/title screen renders, stays alive |
 | Windows build | `cmake --build build\cmake` | `esprade.exe`, `esprade_headless.exe` |
-| AppImage | not yet built | — |
+| Linux build | `scripts/build_linux.sh` in Ubuntu 22.04 | `esprade`, `esprade_headless` |
+| AppImage | `scripts/package_appimage.sh` | built; headless 600 frames; launched under Xvfb |
 
 ## Works
 
@@ -34,7 +35,9 @@ Updated: 2026-10-31
 
 - **Interactive controls**: the window opens and renders, but keyboard/gamepad movement
   and fullscreen have not been exercised against gameplay on this machine.
-- **Steam Deck**: no AppImage has been built or launched on SteamOS yet.
+- **Steam Deck**: the AppImage is built and launches under Xvfb, but it has not been run on
+  a physical SteamOS device; Steam Input, Gaming Mode and audio device selection remain
+  unverified.
 - **MAME frame comparison**: no reference trace has been recorded; pixel-exact comparison
   with MAME is future work.
 - **Analysis coverage**: ~200 KiB of the 1 MiB program is classified as code. The trace

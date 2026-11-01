@@ -153,16 +153,31 @@ static void frame_ready(cave_machine *machine, void *user)
 
 static const char *default_rom(void)
 {
-	static char path[1024];
+	static char path[2048];
+	const char *from_env = SDL_getenv("ESPRADE_ROM");
+	if (from_env && *from_env)
+		return from_env;
+
+	char *pref = SDL_GetPrefPath("omegakatana92", "ESPRaDe");
+	if (pref)
+	{
+		snprintf(path, sizeof(path), "%srom/esprade.zip", pref);
+		SDL_RWops *file = SDL_RWFromFile(path, "rb");
+		if (file) { SDL_RWclose(file); SDL_free(pref); return path; }
+		snprintf(path, sizeof(path), "%sesprade.zip", pref);
+		file = SDL_RWFromFile(path, "rb");
+		if (file) { SDL_RWclose(file); SDL_free(pref); return path; }
+		SDL_free(pref);
+	}
 	const char *base = SDL_GetBasePath();
 	if (base)
 	{
 		snprintf(path, sizeof(path), "%srom/esprade.zip", base);
-		if (SDL_RWFromFile(path, "rb"))
-			return path;
+		SDL_RWops *file = SDL_RWFromFile(path, "rb");
+		if (file) { SDL_RWclose(file); return path; }
 		snprintf(path, sizeof(path), "%sesprade.zip", base);
-		if (SDL_RWFromFile(path, "rb"))
-			return path;
+		file = SDL_RWFromFile(path, "rb");
+		if (file) { SDL_RWclose(file); return path; }
 	}
 	return "rom/esprade.zip";
 }

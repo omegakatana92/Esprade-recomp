@@ -22,7 +22,9 @@ mkdir -p "$APPDIR/usr/share/icons/hicolor/256x256/apps"
 mkdir -p "$APPDIR/usr/share/licenses/esprade-recomp"
 
 cp "$BUILD/esprade" "$APPDIR/usr/bin/esprade"
+cp "$BUILD/esprade_headless" "$APPDIR/usr/bin/esprade_headless"
 strip "$APPDIR/usr/bin/esprade" || true
+strip "$APPDIR/usr/bin/esprade_headless" || true
 
 # Bundle the SDL2 shared library and its dependencies that are not guaranteed on SteamOS.
 if command -v ldd >/dev/null 2>&1; then
@@ -38,7 +40,8 @@ cat > "$APPDIR/AppRun" <<'EOF'
 #!/bin/sh
 HERE="$(dirname "$(readlink -f "$0")")"
 export LD_LIBRARY_PATH="$HERE/usr/lib:${LD_LIBRARY_PATH:-}"
-exec "$HERE/usr/bin/esprade" "$@"
+# The cabinet is vertical; start fullscreen. Pass --windowed to override.
+exec "$HERE/usr/bin/esprade" --fullscreen "$@"
 EOF
 chmod +x "$APPDIR/AppRun"
 
