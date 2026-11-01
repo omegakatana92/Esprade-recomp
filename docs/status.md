@@ -34,21 +34,23 @@ Updated: 2026-10-31
 ## Not yet working / not yet verified
 
 - **Interactive controls**: coin/start for both players are wired and were exercised
-  (Windows window and headless). Player 2 uses the second SDL controller. Movement,
-  shot/bomb and fullscreen are implemented but not yet exercised against gameplay.
-- **Performance**: the scheduler now uses an absolute high-resolution deadline at
-  57.55 Hz; fullscreen measured 57.55 simulated/presented FPS with p99 ≈21 ms and no
-  missed deadlines. Windowed mode is stable while focused; an occluded window can be
-  throttled by the desktop compositor.
-- **Audio**: YMZ280B runs at its 88.2 kHz internal rate and is decimated to 44.1 kHz;
-  device-format conversion, fractional sample accumulation and a bounded queue are in
-  place. Measured latency ≈41–63 ms, no underruns in the fullscreen run.
+  (Windows window and headless). Player 2 uses the second SDL controller. Autofire/shot was
+  exercised; bomb, movement patterns and fullscreen interaction timing still need a human
+  play test.
+- **Performance**: absolute 57.55 Hz scheduler; fullscreen measured 57.55
+  simulated/presented FPS, p99 ≈19.4 ms, 0 missed deadlines in a 12,000-frame
+  coin/start/autofire run. Rendering now happens after the VBLANK handler.
+- **Audio**: YMZ280B at 88.2 kHz decimated to 44.1 kHz, device-format conversion,
+  fractional sample accumulation, bounded queue. Measured queue latency 21–45 ms
+  (avg ~34 ms), 0 underruns in the fullscreen run.
+- **Display list**: Stage 1 intro has 0 zero sprite entries in both native and MAME;
+  warning screen pixel-identical to MAME.
 - **Steam Deck**: the AppImage is built and launches under Xvfb, but it has not been run on
   a physical SteamOS device; Steam Input, Gaming Mode and audio device selection remain
   unverified.
-- **MAME gameplay comparison**: a MAME 0.289 AVI/WAV reference was recorded and confirms
-  the 57.55 Hz/240x320 presentation, but an input-matched Stage 1 A/B comparison is still
-  open.
+- **MAME gameplay comparison**: a MAME 0.289 AVI/WAV reference was recorded. The warning
+  screen is pixel-identical and the Stage 1 intro has the same zero-sprite count, but a
+  full 90 s player-controlled Stage 1 A/B and measured audiovisual offset are still open.
 - **Analysis coverage**: ~200 KiB of the 1 MiB program is classified as code. The trace
   loop covers the attract/gameplay paths exercised so far; other modes (service menu,
   endings, both players) may still reveal unseeded handlers.
@@ -57,7 +59,8 @@ Updated: 2026-10-31
 
 ## Next
 
-1. Exercise the SDL port interactively: coin, start, shot/bomb, fullscreen, gamepad.
-2. Build the AppImage on Linux x86_64 and launch it on Steam Deck Desktop/Gaming Mode.
-3. Record a MAME reference trace and compare deterministic frames/audio.
+1. Run a human-controlled Stage 1 session with `--stats` and measure audiovisual offset
+   against the MAME reference.
+2. Launch the AppImage on a physical Steam Deck (Desktop and Gaming Mode).
+3. Compare the audio mixer sample-by-sample with MAME/ymfm.
 4. Continue the handler-table trace loop for service mode and both-player paths.

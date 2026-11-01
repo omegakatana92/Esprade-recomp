@@ -18,6 +18,19 @@ void program_frame_wait(void)
 	machine->frame++;
 	machine->vblank_pending = 1;
 	machine->irq_level = 1;
+	machine->frame_pending = 1;
+}
+
+void program_frame_end(void)
+{
+	cave_machine *machine = cave_current;
+	if (!machine || !machine->frame_pending)
+		return;
+	machine->frame_pending = 0;
+
+	/* The level-1 handler sets $100F04 when it actually processed VBLANK. */
+	if (machine->work_ram[0x0F04] == 0 && machine->work_ram[0x0F05] == 0)
+		machine->vblank_handler_misses++;
 
 	clock_t video_start = clock();
 	cave_video_refresh(machine);

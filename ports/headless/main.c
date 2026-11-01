@@ -284,10 +284,25 @@ int main(int argc, char **argv)
 			machine->video_regs[3], machine->video_regs[4], machine->video_regs[5]);
 	}
 
-	fprintf(stderr, "frames=%llu hashes=%016llx bad=%llu/%llu pc=%06X frame_max=%.2fms cpu_max=%.2fms video_max=%.2fms over17.4=%llu\n",
+	unsigned zero_sprites = 0;
+	for (int sprite = 0; sprite < 1024; sprite++)
+	{
+		int empty = 1;
+		for (int byte = 0; byte < 16; byte++)
+			if (machine->sprite_ram[sprite * 16 + byte] != 0)
+			{
+				empty = 0;
+				break;
+			}
+		zero_sprites += (unsigned)empty;
+	}
+	fprintf(stderr, "frames=%llu hashes=%016llx bad=%llu/%llu pc=%06X irq=%u vbl=%04X.%02X vmiss=%llu zsprites=%u frame_max=%.2fms cpu_max=%.2fms video_max=%.2fms over17.4=%llu\n",
 		(unsigned long long)machine->frame, (unsigned long long)hashes,
 		(unsigned long long)machine->bad_reads, (unsigned long long)machine->bad_writes,
-		cpu.pc & 0xFFFFFFu, timing_max, timing_cpu_max, machine->video_ms_max,
+		cpu.pc & 0xFFFFFFu, cpu.interrupts,
+		(unsigned)((machine->work_ram[0x11F6] << 8) | machine->work_ram[0x11F7]),
+		machine->work_ram[0x11F9], (unsigned long long)machine->vblank_handler_misses,
+		zero_sprites, timing_max, timing_cpu_max, machine->video_ms_max,
 		(unsigned long long)timing_overruns);
 	if (hash_file)
 		fclose(hash_file);

@@ -71,7 +71,9 @@ struct cave_machine
 	int vblank_pending;
 	int sound_pending;
 	int irq_level;
+	int frame_pending;
 	uint64_t frame;
+	uint64_t vblank_handler_misses;
 
 	uint16_t input0;                  /* active low, as the ports are */
 	uint16_t input1;
@@ -112,6 +114,7 @@ void cave_write32(uint32_t address, uint32_t value, uint16_t mem_mask);
 
 /* the frame the translated program waits for (runtime/src/program.c) */
 void program_frame_wait(void);
+void program_frame_end(void);
 
 /* video (runtime/src/video.c) */
 void cave_video_refresh(cave_machine *machine);

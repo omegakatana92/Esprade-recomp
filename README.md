@@ -22,12 +22,12 @@ core and no instruction interpreter is shipped.
 | Static analysis | **Working**: 34,945 instructions, 386 functions, no unresolved paths |
 | Native translation | **Working**: 2,000+ C functions, 0 unsupported instructions |
 | Headless boot | **Working**: 600 frames, 0 bad bus accesses, 0 missing code |
-| Video | **Working**: title, warning, in-game and ranking screens verified |
-| Audio | **Working**: YMZ280B ADPCM/PCM mixer, 44.1 kHz stereo WAV verified |
+| Video | **Working**: title, warning, in-game and ranking screens verified; warning screen pixel-identical to MAME |
+| Audio | **Working**: YMZ280B 88.2 kHz core decimated to 44.1 kHz, device format converted |
 | Inputs | **Working headless**: coin/start; SDL mapping implemented |
-| Gameplay | **Verified 60,000 frames** with no missing code or bad bus access |
+| Gameplay | **Verified 60,000 frames**; automated Stage 1 timing 57.55 fps |
 | Windows executable | **Builds and launches**: warning/title and coin/start gameplay verified |
-| Linux executable | **Builds and runs**: 60,000 headless frames, same hashes as Windows |
+| Linux executable | **Builds and runs**: 60,000 headless frames, same core hashes as Windows |
 | Steam Deck AppImage | **Built and launched under Xvfb**; not yet tested on physical SteamOS |
 
 ## Performance

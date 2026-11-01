@@ -220,6 +220,8 @@ void m68k_take_interrupts(uint32_t resume)
 	cave_interrupt_acknowledge((int)level);
 	cpu.interrupts++;
 	exception_frame(24 + level, resume & 0xFFFFFFu, (int)level);
+	/* The frame's VBLANK handler has finished updating the display list. */
+	program_frame_end();
 }
 
 void m68k_stop(uint32_t value)

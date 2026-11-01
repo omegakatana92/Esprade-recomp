@@ -41,6 +41,10 @@ typedef struct
 
 static frontend app;
 static int coin_pulse[2];
+static uint64_t auto_coin = UINT64_MAX;
+static uint64_t auto_start = UINT64_MAX;
+static uint64_t run_frames;
+static int autofire;
 
 /* scheduler and diagnostics */
 static uint64_t perf_frequency;
@@ -207,6 +211,12 @@ static void apply_buttons(cave_machine *machine)
 		p2 |= 0x0100;
 		coin_pulse[1]--;
 	}
+	if (machine->frame >= auto_coin && machine->frame < auto_coin + 8)
+		p1 |= 0x0100;
+	if (machine->frame >= auto_start && machine->frame < auto_start + 8)
+		p1 |= 0x0080;
+	if (autofire && machine->frame > auto_start + 60)
+		p1 |= 0x0010;
 	cave_set_inputs(machine, p1, p2);
 }
 
@@ -386,6 +396,13 @@ static void frame_ready(cave_machine *machine, void *user)
 	present();
 	pace_frame();
 	last_frame_end = SDL_GetPerformanceCounter();
+	if (run_frames && machine->frame >= run_frames)
+	{
+		if (stats_enabled)
+			report_stats(machine);
+		running = 0;
+		longjmp(escape, 1);
+	}
 }
 
 static const char *default_rom(void)
@@ -441,6 +458,14 @@ int main(int argc, char **argv)
 			accelerated = 0;
 		else if (strcmp(argv[index], "--stats") == 0)
 			stats_enabled = 1;
+		else if (strcmp(argv[index], "--coin") == 0 && index + 1 < argc)
+			auto_coin = strtoull(argv[++index], NULL, 10);
+		else if (strcmp(argv[index], "--start") == 0 && index + 1 < argc)
+			auto_start = strtoull(argv[++index], NULL, 10);
+		else if (strcmp(argv[index], "--frames") == 0 && index + 1 < argc)
+			run_frames = strtoull(argv[++index], NULL, 10);
+		else if (strcmp(argv[index], "--autofire") == 0)
+			autofire = 1;
 	}
 
 	SDL_SetHint(SDL_HINT_TIMER_RESOLUTION, "1");
